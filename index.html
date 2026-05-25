@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyTrip — Архитектурный Нижний Новгород XIX–XX вв.</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #f7f7f8;
+            --card: #ffffff;
+            --accent: #6366f1;
+            --accent2: #8b5cf6;
+            --text: #1e1e2e;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --warm: #f59e0b;
+            --rose: #f43f5e;
+            --radius: 14px;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --popup-bg: #fff;
+            --popup-text: #1e1e2e;
+            --price-bg: #f5f3ff;
+            --price-border: #e8e5ff;
+            --drawer-hover: #f8f7ff;
+            --cat-hover: #fafafa;
+            --row-border: #f9f9f9;
+            --search-bg: #fff;
+        }
+        [data-theme="dark"] {
+            --bg: #0f0f17;
+            --card: #1a1a2e;
+            --text: #e2e2ea;
+            --muted: #8888a0;
+            --border: #2a2a40;
+            --shadow: 0 2px 12px rgba(0,0,0,0.3);
+            --popup-bg: #1a1a2e;
+            --popup-text: #e2e2ea;
+            --price-bg: #252540;
+            --price-border: #333355;
+            --drawer-hover: #22223a;
+            --cat-hover: #1e1e32;
+            --row-border: #222238;
+            --search-bg: #252540;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+        /* ===== HEADER ===== */
+        header {
+            height: 56px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 14px;
+            z-index: 100;
+            position: relative;
+        }
+        .logo {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 1.3rem; font-weight: 800; color: var(--accent);
+        }
+        .logo i { font-size: 1.1rem; }
+        .header-sub { font-size: 0.78rem; color: var(--muted); }
+        .header-actions { margin-left: auto; display: flex; gap: 8px; }
+        .hdr-btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text);
+            display: flex; align-items: center; gap: 6px;
+            transition: all 0.15s;
+        }
+        .hdr-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .hdr-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* ===== LAYOUT ===== */
+        .layout { display: flex; height: calc(100vh - 56px); position: relative; }
+        #map { flex: 1; z-index: 1; }
+
+        /* ===== PLACES DRAWER ===== */
+        .drawer-overlay {
+            display: none;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+            z-index: 500;
+        }
+        .drawer-overlay.open { display: block; }
+        .drawer {
+            position: fixed;
+            top: 0; left: -420px;
+            width: 400px; height: 100vh;
+            background: var(--card);
+            z-index: 600;
+            transition: left 0.3s cubic-bezier(.4,0,.2,1);
+            display: flex; flex-direction: column;
+            box-shadow: 4px 0 30px rgba(0,0,0,0.12);
+        }
+        .drawer.open { left: 0; }
+        .drawer-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .drawer-header h2 { font-size: 1.1rem; font-weight: 700; }
+        .drawer-close {
+            width: 34px; height: 34px; border-radius: 10px;
+            border: 1px solid var(--border); background: transparent;
+            cursor: pointer; font-size: 1rem; color: var(--muted);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .drawer-close:hover { background: var(--bg); }
+        .drawer-search {
+            margin: 12px 16px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+            font-size: 0.88rem;
+            outline: none;
+            width: calc(100% - 32px);
+            background: var(--search-bg);
+            color: var(--text);
+            transition: border 0.15s;
+        }
+        .drawer-search:focus { border-color: var(--accent); }
+        .drawer-body { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+
+        .cat-section { border-bottom: 1px solid var(--border); }
+        .cat-header {
+            padding: 12px 20px;
+            display: flex; align-items: center; gap: 10px;
+            cursor: pointer; user-select: none;
+            font-weight: 600; font-size: 0.88rem;
+            transition: background 0.1s;
+        }
+        .cat-header:hover { background: var(--cat-hover); }
+        .cat-badge {
+            width: 30px; height: 30px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 0.75rem;
+        }
+        .cat-header .cnt { margin-left: auto; font-size: 0.75rem; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 10px; }
+        .cat-header .chevron { margin-left: 6px; font-size: 0.6rem; color: #ccc; transition: transform 0.2s; }
+        .cat-header.open .chevron { transform: rotate(90deg); }
+        .cat-items { display: none; }
+        .cat-items.open { display: block; }
+
+        .place-row {
+            padding: 12px 20px 12px 60px;
+            display: flex; align-items: center; gap: 12px;
+            cursor: pointer; transition: background 0.1s;
+            border-bottom: 1px solid var(--row-border);
+        }
+        .place-row:hover { background: var(--drawer-hover); }
+        .place-row img {
+            width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0;
+        }
+        .place-row-info { flex: 1; min-width: 0; }
+        .place-row-name { font-size: 0.85rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .place-row-year { font-size: 0.75rem; color: var(--muted); }
+        .place-row-price { font-size: 0.75rem; color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+        /* ===== ROUTES PANEL ===== */
+        .routes-drawer {
+            position: fixed;
+            top: 0; left: -460px;
+            width: 440px; height: 100vh;
+            background: var(--card);
+            z-index: 600;
+            transition: left 0.3s cubic-bezier(.4,0,.2,1);
+            display: flex; flex-direction: column;
+            box-shadow: 4px 0 30px rgba(0,0,0,0.12);
+        }
+        .routes-drawer.open { left: 0; }
+        .route-card {
+            margin: 0 16px 10px;
+            padding: 16px;
+            border-radius: var(--radius);
+            border: 1.5px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .route-card:hover { border-color: var(--accent); }
+        .route-card.active { border-color: var(--accent); background: var(--price-bg); }
+        .route-card .rc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .route-card .rc-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .route-card .rc-name { font-weight: 700; font-size: 0.92rem; }
+        .route-card .rc-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; }
+        .route-card .rc-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
+        .route-stops { padding: 0 20px 16px 36px; }
+        .route-stop {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 0; font-size: 0.82rem; color: var(--muted);
+            border-left: 2px solid var(--border);
+            padding-left: 14px;
+            margin-left: 4px;
+            cursor: pointer;
+        }
+        .route-stop:hover { color: var(--accent); }
+        .route-stop .stop-num {
+            width: 20px; height: 20px; border-radius: 50%;
+            font-size: 0.68rem; font-weight: 700; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .clear-route-btn {
+            margin: 4px 16px 16px;
+            padding: 10px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+        .clear-route-btn:hover { border-color: var(--rose); color: var(--rose); }
+
+        /* ===== DETAIL PANEL (right) ===== */
+        .detail-panel {
+            width: 380px;
+            background: var(--card);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .detail-empty {
+            height: 100%; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: #ccc; text-align: center; padding: 40px;
+        }
+        .detail-empty i { font-size: 2.5rem; margin-bottom: 14px; }
+        .detail-empty p { font-size: 0.88rem; }
+
+        .detail-content { display: none; }
+        .detail-content.show { display: block; }
+        .detail-img { width: 100%; height: 220px; object-fit: cover; }
+        .detail-body { padding: 20px; }
+        .detail-tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 0.73rem; font-weight: 600; color: #fff;
+            margin-bottom: 10px;
+        }
+        .detail-name { font-size: 1.2rem; font-weight: 800; color: var(--text); margin-bottom: 4px; line-height: 1.3; }
+        .detail-year { font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-bottom: 14px; }
+        .detail-desc { font-size: 0.88rem; line-height: 1.65; color: var(--muted); margin-bottom: 18px; }
+        .detail-price-box {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px;
+            background: var(--price-bg);
+            border-radius: 12px;
+            border: 1px solid var(--price-border);
+        }
+        .detail-price-box i { color: var(--accent); font-size: 1rem; }
+        .detail-price-box span { font-weight: 700; font-size: 0.9rem; }
+
+        /* ===== GALLERY CAROUSEL ===== */
+        .gallery-wrap { position: relative; width: 100%; height: 220px; overflow: hidden; background: #111; }
+        .gallery-wrap img { width: 100%; height: 220px; object-fit: cover; display: none; }
+        .gallery-wrap img.active { display: block; }
+        .gallery-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(0,0,0,0.5); border: none; color: #fff;
+            cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s; z-index: 2;
+        }
+        .gallery-nav:hover { background: rgba(0,0,0,0.75); }
+        .gallery-nav.prev { left: 8px; }
+        .gallery-nav.next { right: 8px; }
+        .gallery-dots {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 5px; z-index: 2;
+        }
+        .gallery-dots span {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: rgba(255,255,255,0.4); cursor: pointer; transition: background 0.15s;
+        }
+        .gallery-dots span.active { background: #fff; }
+
+        /* ===== THEN & NOW SLIDER ===== */
+        .compare-wrap { position: relative; width: 100%; height: 200px; overflow: hidden; margin-top: 16px; border-radius: 12px; user-select: none; }
+        .compare-wrap img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .compare-wrap .compare-new { clip-path: inset(0 0 0 0); z-index: 1; }
+        .compare-wrap .compare-old { z-index: 0; }
+        .compare-handle {
+            position: absolute; top: 0; bottom: 0; width: 4px; background: #fff;
+            z-index: 3; cursor: ew-resize; box-shadow: 0 0 6px rgba(0,0,0,0.5);
+        }
+        .compare-handle::after {
+            content: '⟷'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            width: 28px; height: 28px; border-radius: 50%; background: #fff; color: #333;
+            display: flex; align-items: center; justify-content: center; font-size: 0.7rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .compare-labels { position: absolute; bottom: 8px; z-index: 4; display: flex; justify-content: space-between; width: 100%; padding: 0 10px; }
+        .compare-labels span {
+            padding: 2px 10px; border-radius: 10px; font-size: 0.72rem; font-weight: 700;
+            color: #fff; background: rgba(0,0,0,0.55);
+        }
+
+        /* ===== POPUP ===== */
+        .leaflet-popup-content-wrapper { border-radius: 14px !important; box-shadow: var(--shadow) !important; padding: 0 !important; overflow: hidden; background: var(--popup-bg) !important; color: var(--popup-text) !important; }
+        .leaflet-popup-tip { background: var(--popup-bg) !important; box-shadow: none !important; }
+        .leaflet-popup-content { margin: 0 !important; width: 280px !important; }
+        .popup-card {}
+        .popup-card img { width: 100%; height: 130px; object-fit: cover; display: block; }
+        .popup-card-body { padding: 12px 14px; }
+        .popup-card-body h3 { font-size: 0.92rem; font-weight: 700; margin-bottom: 3px; color: var(--text); }
+        .popup-card-body .popup-year { font-size: 0.75rem; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+        .popup-card-body .popup-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .popup-card-body .popup-price { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+
+        /* ===== MAP MARKERS ===== */
+        .map-marker {
+            width: 36px; height: 36px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+            border: 2.5px solid #fff;
+            transition: transform 0.15s;
+        }
+        .map-marker i { transform: rotate(45deg); color: #fff; font-size: 0.72rem; }
+
+        @media (max-width: 1000px) { .detail-panel { display: none; } }
+        @media (max-width: 600px) {
+            .drawer, .routes-drawer { width: 100%; }
+            header .header-sub { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo"><i class="fas fa-map-location-dot"></i> MyTrip</div>
+    <span class="header-sub">Архитектурный облик Нижнего Новгорода XIX–XX вв.</span>
+    <div class="header-actions">
+        <button class="hdr-btn" id="btnTheme"><i class="fas fa-moon"></i></button>
+        <button class="hdr-btn" id="btnPlaces"><i class="fas fa-list"></i> Все места</button>
+        <button class="hdr-btn" id="btnRoutes"><i class="fas fa-route"></i> Маршруты</button>
+    </div>
+</header>
+
+<!-- Places drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="placesDrawer">
+    <div class="drawer-header">
+        <h2><i class="fas fa-landmark"></i> Все места</h2>
+        <button class="drawer-close" id="drawerClose"><i class="fas fa-xmark"></i></button>
+    </div>
+    <input class="drawer-search" id="searchInput" type="text" placeholder="Поиск по названию…" />
+    <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<!-- Routes drawer -->
+<div class="routes-drawer" id="routesDrawer">
+    <div class="drawer-header">
+        <h2><i class="fas fa-route"></i> Маршруты</h2>
+        <button class="drawer-close" id="routesClose"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="drawer-body" id="routesBody" style="padding-top:10px;"></div>
+</div>
+
+<div class="layout">
+    <div id="map"></div>
+    <div class="detail-panel">
+        <div class="detail-empty" id="detailEmpty">
+            <i class="fas fa-hand-pointer"></i>
+            <p>Нажмите на метку на карте, чтобы узнать подробности</p>
+        </div>
+        <div class="detail-content" id="detailContent">
+            <div class="gallery-wrap" id="dGallery"></div>
+            <div class="detail-body">
+                <div class="detail-tag" id="dTag"></div>
+                <div class="detail-name" id="dName"></div>
+                <div class="detail-year" id="dYear"></div>
+                <div class="detail-desc" id="dDesc"></div>
+                <div class="detail-price-box">
+                    <i class="fas fa-ticket"></i>
+                    <span id="dPrice"></span>
+                </div>
+                <div id="dCompare"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ====== DATA ======
+const categories = [
+    { id: "fortress", name: "Крепости и оборона",  icon: "fa-chess-rook",    color: "#64748b" },
+    { id: "temple",   name: "Храмы и монастыри",   icon: "fa-church",        color: "#8b5cf6" },
+    { id: "mansion",  name: "Усадьбы и особняки",  icon: "fa-building",      color: "#ef4444" },
+    { id: "public",   name: "Общественные здания",  icon: "fa-university",    color: "#3b82f6" },
+    { id: "culture",  name: "Культура и театры",    icon: "fa-masks-theater", color: "#f97316" },
+    { id: "commerce", name: "Торговля и ярмарки",   icon: "fa-store",         color: "#10b981" },
+    { id: "monument", name: "Памятники и лестницы", icon: "fa-monument",      color: "#eab308" },
+];
+
+const places = [
+    { id:0, cat:"fortress", name:"Нижегородский кремль", lat:56.3287, lng:44.0027, year:"1500–1515, реставрации XIX–XX вв.",
+      desc:"Крепость начала XVI века с 13 башнями. В XIX веке проведены масштабные реставрации, в XX веке — восстановление после войны. Стены протянулись на 2 км, перепад высот достигает 82 метров. Символ города.",
+      img:"img/kremlin.jpg", gallery:["img/kremlin.jpg","img/gallery/kremlin_2.jpg","img/gallery/kremlin_3.jpg"], oldImg:"img/old/kremlin_old.jpg",
+      price:"Территория бесплатно, стены — 250 ₽"},
+
+    { id:1, cat:"temple", name:"Рождественская (Строгановская) церковь", lat:56.3253, lng:44.0024, year:"1696–1719",
+      desc:"Шедевр строгановского барокко. Богатейший белокаменный декор фасадов. Пятиглавый храм с колокольней поражает пышностью каменной резьбы. В XIX веке неоднократно реставрировалась.",
+      img:"img/stroganov.jpg", gallery:["img/stroganov.jpg","img/gallery/stroganov_2.jpg"],
+      price:"Бесплатно"},
+    { id:2, cat:"temple", name:"Собор Александра Невского", lat:56.3334, lng:43.9604, year:"1868–1881",
+      desc:"Третий по высоте собор России (87 м). Построен на стрелке Оки и Волги по проекту Л. В. Даля в русско-византийском стиле. Возведён на средства ярмарочного купечества.",
+      img:"img/nevsky.jpg", gallery:["img/nevsky.jpg","img/gallery/nevsky_2.jpg"],
+      price:"Бесплатно"},
+    { id:3, cat:"temple", name:"Вознесенский Печерский монастырь", lat:56.3188, lng:44.0220, year:"XIV в., перестроен XVII–XIX вв.",
+      desc:"Древний монастырь, основанный в 1328 году. Ансамбль XVII–XIX веков включает Вознесенский собор, колокольню и братские корпуса. Расположен на живописном склоне над Волгой.",
+      img:"img/pechersky.jpg",
+      price:"Бесплатно"},
+    { id:4, cat:"temple", name:"Спасский Староярмарочный собор", lat:56.3275, lng:43.9615, year:"1816–1822",
+      desc:"Построен по проекту О. Монферрана как главный храм Нижегородской ярмарки. Классицизм. Пятикупольный собор с мощными колоннами — «младший брат» Исаакиевского собора.",
+      img:"img/spas_yarm.jpg",
+      price:"Бесплатно"},
+    { id:5, cat:"temple", name:"Церковь Рождества Иоанна Предтечи", lat:56.3293, lng:44.0050, year:"1683, перестроена XIX в.",
+      desc:"Один из древнейших храмов города у подножия Кремля. По преданию, отсюда в 1612 году Козьма Минин призвал горожан на борьбу с интервентами.",
+      img:"img/predtecha.jpg",
+      price:"Бесплатно"},
+
+    { id:6, cat:"mansion", name:"Усадьба Рукавишниковых", lat:56.3303, lng:44.0103, year:"1877",
+      desc:"Роскошный дворец на Верхне-Волжской набережной в стиле итальянского палаццо. Фасад декорирован лепниной и атлантами. Ныне — историко-архитектурный музей с восстановленными интерьерами.",
+      img:"img/rukavishnikov.jpg",
+      price:"350 ₽"},
+    { id:7, cat:"mansion", name:"Дом Сироткина", lat:56.3298, lng:44.0155, year:"1913–1916",
+      desc:"Неоклассический особняк братьев Весниных для купца Д. В. Сироткина. Часть Художественного музея. Хранит огромное полотно К. Маковского «Воззвание Минина».",
+      img:"img/sirotkin.jpg",
+      price:"300 ₽"},
+    { id:8, cat:"mansion", name:"Дом Каменских", lat:56.3187, lng:43.9880, year:"1912",
+      desc:"Особняк в стиле модерн на Большой Покровской. Асимметричный фасад, плавные линии, витражные окна. Яркий пример нижегородского модерна начала XX века.",
+      img:"img/kamensky.jpg", oldImg:"img/old/pokrovskaya_old.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+    { id:9, cat:"mansion", name:"Дом Бурмистровой (Литературный музей)", lat:56.3193, lng:43.9907, year:"1882",
+      desc:"Особняк купчихи В. М. Бурмистровой в стиле эклектики. С 1928 года — музей А. М. Горького. Экспозиция рассказывает о литературной жизни Нижнего Новгорода.",
+      img:"img/lit_museum.jpg",
+      price:"250 ₽"},
+    { id:10, cat:"mansion", name:"Дом Щёлокова", lat:56.3177, lng:43.9847, year:"1841",
+      desc:"Двухэтажный каменный дом в стиле позднего классицизма. Один из немногих сохранившихся жилых домов первой половины XIX века на Большой Покровской.",
+      img:"img/shelokova.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+    { id:11, cat:"mansion", name:"Дом Пальцева", lat:56.3208, lng:43.9925, year:"1913",
+      desc:"Модерн с элементами неоклассицизма. Доходный дом купца Пальцева. Выразительный фасад с крупными окнами — одно из самых заметных зданий Большой Покровской.",
+      img:"img/paltsev.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+
+    { id:12, cat:"public", name:"Государственный банк", lat:56.3178, lng:43.9936, year:"1911–1913",
+      desc:"Шедевр неорусского стиля по проекту В. А. Покровского к 300-летию дома Романовых. Интерьеры расписаны И. Я. Билибиным. Одно из красивейших банковских зданий Европы.",
+      img:"img/gosbank.jpg", gallery:["img/gosbank.jpg","img/gallery/gosbank_2.jpg"],
+      price:"Экскурсии по записи, бесплатно"},
+    { id:13, cat:"public", name:"Дом Бугрова (Городская дума)", lat:56.3268, lng:44.0056, year:"1896",
+      desc:"Построено на средства купца-мецената Н. А. Бугрова для Городской думы. Эклектика с элементами русского стиля. Яркий пример купеческой благотворительности.",
+      img:"img/duma.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+    { id:14, cat:"public", name:"Дворец труда (бывшая биржа)", lat:56.3243, lng:44.0005, year:"1880-е",
+      desc:"Здание хлебной биржи на Нижне-Волжской набережной в стиле эклектики. После революции — Дворец труда. Монументальный фасад обращён к Волге.",
+      img:"img/dvorets_truda.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+    { id:15, cat:"public", name:"Нижегородская почтовая контора", lat:56.3230, lng:43.9983, year:"1846",
+      desc:"Одно из старейших общественных зданий на улице Рождественской. Поздний классицизм. Важный узел связи на ярмарочном почтовом тракте.",
+      img:"img/pochta.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+
+    { id:16, cat:"culture", name:"Драматический театр им. Горького", lat:56.3165, lng:43.9952, year:"1896",
+      desc:"Академическая эклектика, проект В. П. Цейдлера. Один из старейших театров России. Фасад украшен колоннами и скульптурным декором. Зрительный зал на 750 мест.",
+      img:"img/drama.jpg",
+      price:"Билеты от 400 ₽"},
+    { id:17, cat:"culture", name:"Художественный музей (Кремль)", lat:56.3279, lng:44.0012, year:"1896",
+      desc:"Один из старейших художественных музеев России, расположен в бывшем губернаторском доме в Кремле. Коллекция включает Репина, Левитана, Рериха и других мастеров.",
+      img:"img/art_museum.jpg",
+      price:"300 ₽"},
+    { id:18, cat:"culture", name:"Домик Каширина (Музей детства Горького)", lat:56.3210, lng:44.0035, year:"1830-е",
+      desc:"Деревянный дом, где прошло детство Алексея Пешкова (Максима Горького). Музей воссоздаёт быт мещанской семьи XIX века, описанный в повести «Детство».",
+      img:"img/kashirin.jpg",
+      price:"200 ₽"},
+
+    { id:19, cat:"commerce", name:"Главный ярмарочный дом", lat:56.3282, lng:43.9573, year:"1890",
+      desc:"Центральное здание Нижегородской ярмарки — крупнейшей в России. Русский стиль с элементами барокко. Ярмарку называли «карманом России».",
+      img:"img/yarmarka.jpg", oldImg:"img/old/yarmarka_old.jpg",
+      price:"Бесплатно (осмотр)"},
+    { id:20, cat:"commerce", name:"Блиновский пассаж", lat:56.3246, lng:43.9998, year:"1876–1878",
+      desc:"Крупнейший торговый пассаж XIX века, построен на средства купцов Блиновых. 160 метров вдоль улицы Рождественской. Яркий образец купеческой коммерческой архитектуры.",
+      img:"img/blinov.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+    { id:21, cat:"commerce", name:"Торговый дом Чесноковых", lat:56.3240, lng:44.0010, year:"1890-е",
+      desc:"Нарядное здание на Рождественской с богатым кирпичным декором. Типичный образец торговой архитектуры конца XIX века. Нижние этажи — магазины, верхние — конторы.",
+      img:"img/chesnokov.jpg",
+      price:"Бесплатно (осмотр фасада)"},
+
+    { id:22, cat:"monument", name:"Чкаловская лестница", lat:56.3306, lng:44.0095, year:"1943–1949",
+      desc:"Монументальная лестница — 560 ступеней, одна из длиннейших в России. Соединяет Верхне-Волжскую и Нижне-Волжскую набережные. Построена в честь победы под Сталинградом.",
+      img:"img/chkalov_stairs.jpg", gallery:["img/chkalov_stairs.jpg","img/gallery/chkalov_stairs_2.jpg"],
+      price:"Бесплатно"},
+    { id:23, cat:"monument", name:"Памятник Минину и Пожарскому", lat:56.3290, lng:44.0040, year:"2005 (копия оригинала 1818)",
+      desc:"Копия знаменитого московского памятника у стен Кремля. Нижний Новгород — родина ополчения 1612 года. Бронзовая скульптура напоминает о роли города в истории.",
+      img:"img/minin.jpg",
+      price:"Бесплатно"},
+    { id:24, cat:"monument", name:"Памятник Чкалову", lat:56.3309, lng:44.0092, year:"1940",
+      desc:"Бронзовая фигура лётчика-героя В. П. Чкалова на верхней площадке одноимённой лестницы. Один из главных символов города. С площадки — панорама Волги и Стрелки.",
+      img:"img/chkalov_mon.jpg",
+      price:"Бесплатно"},
+];
+
+const routes = [
+    {
+        name: "Большая Покровская — главная прогулка",
+        time: "~2.5 часа", distance: "3.5 км", color: "#6366f1",
+        placeIds: [10, 8, 9, 11, 12, 16],
+        desc: "Пешеходная прогулка по главной улице города — от модерна и классицизма до неорусского стиля Госбанка и драматического театра."
+    },
+    {
+        name: "Рождественская и купеческие кварталы",
+        time: "~2 часа", distance: "3 км", color: "#10b981",
+        placeIds: [20, 15, 21, 1, 14, 18],
+        desc: "Маршрут по старейшей торговой улице: пассажи, храмы строгановского барокко, купеческие дома и музей детства Горького."
+    },
+    {
+        name: "Кремль, набережная и панорамы Волги",
+        time: "~2 часа", distance: "3.5 км", color: "#f97316",
+        placeIds: [0, 13, 17, 23, 24, 22, 6, 7],
+        desc: "Кремль, лучшие смотровые площадки, Чкаловская лестница и усадьбы на набережной с панорамой слияния Оки и Волги."
+    },
+    {
+        name: "Храмы и святыни четырёх веков",
+        time: "~3 часа", distance: "5.5 км", color: "#8b5cf6",
+        placeIds: [5, 0, 4, 2, 19, 1, 3],
+        desc: "Большой маршрут по главным храмам: от церкви Иоанна Предтечи у Кремля через ярмарочные соборы к Строгановской церкви и Печерскому монастырю над Волгой."
+    }
+];
+
+// ====== MAP ======
+const map = L.map('map', { zoomControl: true }).setView([56.3260, 44.0000], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap', maxZoom: 19
+}).addTo(map);
+
+function getCat(id) { return categories.find(c => c.id === id); }
+
+function makeIcon(catId, big) {
+    const cat = getCat(catId);
+    const s = big ? 42 : 36;
+    return L.divIcon({
+        className: '',
+        html: `<div class="map-marker" style="background:${cat.color};width:${s}px;height:${s}px;"><i class="fas ${cat.icon}"></i></div>`,
+        iconSize: [s, s], iconAnchor: [s/2, s], popupAnchor: [0, -s+6]
+    });
+}
+
+function makePopup(p) {
+    return `<div class="popup-card">
+        <img src="${p.img}" alt="${p.name}" onerror="this.style.display='none'" />
+        <div class="popup-card-body">
+            <h3>${p.name}</h3>
+            <div class="popup-year">${p.year}</div>
+            <div class="popup-desc">${p.desc}</div>
+            <div class="popup-price">${p.price}</div>
+        </div>
+    </div>`;
+}
+
+const markers = {};
+places.forEach(p => {
+    const m = L.marker([p.lat, p.lng], { icon: makeIcon(p.cat, false) }).addTo(map);
+    m.bindPopup(makePopup(p), { maxWidth: 280, minWidth: 280, className: '' });
+    m.on('click', () => showDetail(p.id));
+    markers[p.id] = m;
+});
+
+// ====== DETAIL (right panel) ======
+function showDetail(id) {
+    const p = places.find(x => x.id === id);
+    const cat = getCat(p.cat);
+    document.getElementById('detailEmpty').style.display = 'none';
+    const c = document.getElementById('detailContent');
+    c.classList.add('show');
+
+    const imgs = p.gallery || [p.img];
+    const gal = document.getElementById('dGallery');
+    gal.innerHTML = imgs.map((src, i) =>
+        `<img src="${src}" alt="" class="${i===0?'active':''}" onerror="this.style.display='none'" />`
+    ).join('');
+    if (imgs.length > 1) {
+        gal.innerHTML += `<button class="gallery-nav prev" onclick="galNav(-1)"><i class="fas fa-chevron-left"></i></button>
+            <button class="gallery-nav next" onclick="galNav(1)"><i class="fas fa-chevron-right"></i></button>
+            <div class="gallery-dots">${imgs.map((_, i) => `<span class="${i===0?'active':''}" onclick="galGo(${i})"></span>`).join('')}</div>`;
+    }
+
+    const tag = document.getElementById('dTag');
+    tag.style.background = cat.color;
+    tag.innerHTML = `<i class="fas ${cat.icon}"></i> ${cat.name}`;
+    document.getElementById('dName').textContent = p.name;
+    document.getElementById('dYear').textContent = p.year;
+    document.getElementById('dDesc').textContent = p.desc;
+    document.getElementById('dPrice').textContent = p.price;
+
+    const comp = document.getElementById('dCompare');
+    if (p.oldImg) {
+        comp.innerHTML = `<div style="font-weight:700;font-size:0.88rem;margin-top:18px;margin-bottom:8px;"><i class="fas fa-clock-rotate-left"></i> Тогда и сейчас</div>
+            <div class="compare-wrap" id="compareWrap">
+                <img class="compare-old" src="${p.oldImg}" alt="Старое фото" />
+                <img class="compare-new" src="${p.img}" alt="Современное фото" />
+                <div class="compare-handle" id="compareHandle" style="left:50%;"></div>
+                <div class="compare-labels"><span>Тогда</span><span>Сейчас</span></div>
+            </div>`;
+        initCompare();
+    } else {
+        comp.innerHTML = '';
+    }
+
+    map.setView([p.lat, p.lng], 16);
+}
+
+let galIdx = 0;
+function galNav(dir) {
+    const imgs = document.querySelectorAll('#dGallery > img');
+    imgs[galIdx].classList.remove('active');
+    galIdx = (galIdx + dir + imgs.length) % imgs.length;
+    imgs[galIdx].classList.add('active');
+    document.querySelectorAll('.gallery-dots span').forEach((d, i) => d.classList.toggle('active', i === galIdx));
+}
+function galGo(i) { const imgs = document.querySelectorAll('#dGallery > img'); imgs[galIdx].classList.remove('active'); galIdx = i; imgs[galIdx].classList.add('active'); document.querySelectorAll('.gallery-dots span').forEach((d, j) => d.classList.toggle('active', j === i)); }
+
+function initCompare() {
+    const wrap = document.getElementById('compareWrap');
+    const handle = document.getElementById('compareHandle');
+    const newImg = wrap.querySelector('.compare-new');
+    if (!wrap || !handle) return;
+    let dragging = false;
+    const move = (x) => {
+        const rect = wrap.getBoundingClientRect();
+        let pct = ((x - rect.left) / rect.width) * 100;
+        pct = Math.max(0, Math.min(100, pct));
+        handle.style.left = pct + '%';
+        newImg.style.clipPath = `inset(0 0 0 ${pct}%)`;
+    };
+    handle.addEventListener('mousedown', () => dragging = true);
+    handle.addEventListener('touchstart', () => dragging = true);
+    document.addEventListener('mousemove', e => { if (dragging) move(e.clientX); });
+    document.addEventListener('touchmove', e => { if (dragging) move(e.touches[0].clientX); });
+    document.addEventListener('mouseup', () => dragging = false);
+    document.addEventListener('touchend', () => dragging = false);
+}
+
+// ====== DARK THEME ======
+const lightTiles = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const darkTiles = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+let tileLayer = map.eachLayer(l => { if (l instanceof L.TileLayer) tileLayer = l; });
+
+function applyTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+    const btn = document.getElementById('btnTheme');
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    map.eachLayer(l => { if (l instanceof L.TileLayer) map.removeLayer(l); });
+    L.tileLayer(dark ? darkTiles : lightTiles, { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(map);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+document.getElementById('btnTheme').addEventListener('click', () => {
+    applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
+});
+if (localStorage.getItem('theme') === 'dark') applyTheme(true);
+
+// ====== PLACES DRAWER ======
+const drawer = document.getElementById('placesDrawer');
+const overlay = document.getElementById('drawerOverlay');
+const drawerBody = document.getElementById('drawerBody');
+
+function openDrawer(el) {
+    overlay.classList.add('open');
+    el.classList.add('open');
+}
+function closeAllDrawers() {
+    overlay.classList.remove('open');
+    drawer.classList.remove('open');
+    document.getElementById('routesDrawer').classList.remove('open');
+}
+
+document.getElementById('btnPlaces').addEventListener('click', () => { closeAllDrawers(); openDrawer(drawer); });
+document.getElementById('drawerClose').addEventListener('click', closeAllDrawers);
+overlay.addEventListener('click', closeAllDrawers);
+
+categories.forEach(cat => {
+    const catPlaces = places.filter(p => p.cat === cat.id);
+    if (!catPlaces.length) return;
+    const sec = document.createElement('div');
+    sec.className = 'cat-section';
+    const hdr = document.createElement('div');
+    hdr.className = 'cat-header';
+    hdr.innerHTML = `<div class="cat-badge" style="background:${cat.color}"><i class="fas ${cat.icon}"></i></div>
+        ${cat.name} <span class="cnt">${catPlaces.length}</span><i class="fas fa-chevron-right chevron"></i>`;
+    const items = document.createElement('div');
+    items.className = 'cat-items';
+    catPlaces.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'place-row';
+        row.dataset.name = p.name.toLowerCase();
+        row.innerHTML = `<img src="${p.img}" alt="" onerror="this.style.display='none'" />
+            <div class="place-row-info"><div class="place-row-name">${p.name}</div><div class="place-row-year">${p.year}</div></div>
+            <div class="place-row-price">${p.price.length > 20 ? p.price.slice(0,18)+'…' : p.price}</div>`;
+        row.addEventListener('click', () => { showDetail(p.id); markers[p.id].openPopup(); closeAllDrawers(); });
+        items.appendChild(row);
+    });
+    hdr.addEventListener('click', () => { hdr.classList.toggle('open'); items.classList.toggle('open'); });
+    sec.appendChild(hdr);
+    sec.appendChild(items);
+    drawerBody.appendChild(sec);
+});
+
+document.getElementById('searchInput').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    drawerBody.querySelectorAll('.place-row').forEach(row => {
+        row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+    });
+    if (q) drawerBody.querySelectorAll('.cat-items').forEach(el => el.classList.add('open'));
+});
+
+// ====== ROUTES DRAWER ======
+document.getElementById('btnRoutes').addEventListener('click', () => { closeAllDrawers(); openDrawer(document.getElementById('routesDrawer')); });
+document.getElementById('routesClose').addEventListener('click', closeAllDrawers);
+
+let activeRouteLines = [];
+function clearRoutes() {
+    activeRouteLines.forEach(l => map.removeLayer(l));
+    activeRouteLines = [];
+    Object.keys(markers).forEach(id => {
+        const p = places.find(x => x.id == id);
+        markers[id].setIcon(makeIcon(p.cat, false));
+    });
+    document.querySelectorAll('.route-card').forEach(c => c.classList.remove('active'));
+}
+
+async function fetchRoute(coords) {
+    const coordStr = coords.map(c => c[1] + ',' + c[0]).join(';');
+    const url = `https://router.project-osrm.org/route/v1/foot/${coordStr}?overview=full&geometries=geojson`;
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+            return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        }
+    } catch(e) { console.warn('OSRM error', e); }
+    return coords;
+}
+
+async function showRoute(idx) {
+    clearRoutes();
+    const r = routes[idx];
+    const coords = r.placeIds.map(id => { const p = places.find(x => x.id === id); return [p.lat, p.lng]; });
+
+    const routeCoords = await fetchRoute(coords);
+    const line = L.polyline(routeCoords, {
+        color: r.color, weight: 5, opacity: 0.8,
+        lineCap: 'round', lineJoin: 'round'
+    }).addTo(map);
+    activeRouteLines.push(line);
+
+    r.placeIds.forEach((id, i) => {
+        const p = places.find(x => x.id === id);
+        markers[id].setIcon(makeIcon(p.cat, true));
+        const numMarker = L.marker([p.lat, p.lng], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div style="background:${r.color};color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);margin-top:-44px;margin-left:7px;">${i+1}</div>`,
+                iconSize: [22,22], iconAnchor: [11,11]
+            }),
+            interactive: false
+        }).addTo(map);
+        activeRouteLines.push(numMarker);
+    });
+
+    map.fitBounds(line.getBounds(), { padding: [60, 60] });
+    document.querySelectorAll('.route-card')[idx].classList.add('active');
+}
+
+const routesBody = document.getElementById('routesBody');
+routes.forEach((r, i) => {
+    const card = document.createElement('div');
+    card.className = 'route-card';
+    card.innerHTML = `<div class="rc-head"><div class="rc-dot" style="background:${r.color}"></div><div class="rc-name">${r.name}</div></div>
+        <div class="rc-meta">${r.placeIds.length} мест &bull; ${r.time} &bull; ${r.distance}</div>
+        <div class="rc-desc">${r.desc}</div>`;
+    card.addEventListener('click', () => showRoute(i));
+    routesBody.appendChild(card);
+
+    const stops = document.createElement('div');
+    stops.className = 'route-stops';
+    r.placeIds.forEach((id, j) => {
+        const p = places.find(x => x.id === id);
+        const stop = document.createElement('div');
+        stop.className = 'route-stop';
+        stop.innerHTML = `<div class="stop-num" style="background:${r.color}">${j+1}</div> ${p.name}`;
+        stop.addEventListener('click', (e) => { e.stopPropagation(); showDetail(id); markers[id].openPopup(); });
+        stops.appendChild(stop);
+    });
+    routesBody.appendChild(stops);
+});
+
+const clearBtn = document.createElement('button');
+clearBtn.className = 'clear-route-btn';
+clearBtn.textContent = 'Сбросить маршрут';
+clearBtn.addEventListener('click', clearRoutes);
+routesBody.appendChild(clearBtn);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(\\(Get-Command npx -ErrorAction SilentlyContinue\\).Source; \\(Get-Command python -ErrorAction SilentlyContinue\\).Source; \\(Get-Command node -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\lebed\\\\work\\\\history\\\\img\")",
+      "Bash(curl -L -o /c/Users/lebed/work/history/img/stroganov.jpg -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" \"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/NN_Stroganov_Church_08-2016_img4.jpg/640px-NN_Stroganov_Church_08-2016_img4.jpg\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from PIL import Image; print\\('pillow ok'\\)\")",
+      "Bash(python -c \"import importlib; print\\('ok'\\)\")",
+      "Bash(pip install *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
+    ]
+  }
+}
