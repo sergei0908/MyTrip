@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MyTrip — Архитектурный Нижний Новгород XIX–XX вв.</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
         :root {
             --bg: #f7f7f8;
@@ -46,6 +45,7 @@
             --search-bg: #252540;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        .ic { display: inline-block; width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
 
         /* ===== HEADER ===== */
@@ -64,7 +64,7 @@
             display: flex; align-items: center; gap: 8px;
             font-size: 1.3rem; font-weight: 800; color: var(--accent);
         }
-        .logo i { font-size: 1.1rem; }
+        .logo .ic { width: 1.2rem; height: 1.2rem; }
         .header-sub { font-size: 0.78rem; color: var(--muted); }
         .header-actions { margin-left: auto; display: flex; gap: 8px; }
         .hdr-btn {
@@ -144,10 +144,12 @@
         .cat-badge {
             width: 30px; height: 30px; border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 0.75rem;
+            color: #fff;
         }
+        .cat-badge .ic { width: 16px; height: 16px; }
         .cat-header .cnt { margin-left: auto; font-size: 0.75rem; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 10px; }
-        .cat-header .chevron { margin-left: 6px; font-size: 0.6rem; color: #ccc; transition: transform 0.2s; }
+        .cat-header .chevron { margin-left: 6px; color: #ccc; transition: transform 0.2s; display: inline-flex; }
+        .cat-header .chevron .ic { width: 14px; height: 14px; }
         .cat-header.open .chevron { transform: rotate(90deg); }
         .cat-items { display: none; }
         .cat-items.open { display: block; }
@@ -329,7 +331,7 @@
             border: 2.5px solid #fff;
             transition: transform 0.15s;
         }
-        .map-marker i { transform: rotate(45deg); color: #fff; font-size: 0.72rem; }
+        .map-marker .ic { transform: rotate(45deg); color: #fff; width: 16px; height: 16px; }
 
         @media (max-width: 1000px) { .detail-panel { display: none; } }
         @media (max-width: 600px) {
@@ -341,12 +343,12 @@
 <body>
 
 <header>
-    <div class="logo"><i class="fas fa-map-marked-alt"></i> MyTrip</div>
+    <div class="logo" id="logo"></div>
     <span class="header-sub">Архитектурный облик Нижнего Новгорода XIX–XX вв.</span>
     <div class="header-actions">
-        <button class="hdr-btn" id="btnTheme"><i class="fas fa-moon"></i></button>
-        <button class="hdr-btn" id="btnPlaces"><i class="fas fa-list"></i> Все места</button>
-        <button class="hdr-btn" id="btnRoutes"><i class="fas fa-route"></i> Маршруты</button>
+        <button class="hdr-btn" id="btnTheme"></button>
+        <button class="hdr-btn" id="btnPlaces"></button>
+        <button class="hdr-btn" id="btnRoutes"></button>
     </div>
 </header>
 
@@ -354,8 +356,8 @@
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="placesDrawer">
     <div class="drawer-header">
-        <h2><i class="fas fa-landmark"></i> Все места</h2>
-        <button class="drawer-close" id="drawerClose"><i class="fas fa-times"></i></button>
+        <h2 id="placesTitle"></h2>
+        <button class="drawer-close" id="drawerClose"></button>
     </div>
     <input class="drawer-search" id="searchInput" type="text" placeholder="Поиск по названию…" />
     <div class="drawer-body" id="drawerBody"></div>
@@ -364,8 +366,8 @@
 <!-- Routes drawer -->
 <div class="routes-drawer" id="routesDrawer">
     <div class="drawer-header">
-        <h2><i class="fas fa-route"></i> Маршруты</h2>
-        <button class="drawer-close" id="routesClose"><i class="fas fa-times"></i></button>
+        <h2 id="routesTitle"></h2>
+        <button class="drawer-close" id="routesClose"></button>
     </div>
     <div class="drawer-body" id="routesBody" style="padding-top:10px;"></div>
 </div>
@@ -374,7 +376,7 @@
     <div id="map"></div>
     <div class="detail-panel">
         <div class="detail-empty" id="detailEmpty">
-            <i class="fas fa-hand-pointer"></i>
+            <div id="detailEmptyIcon" style="font-size:2.5rem;margin-bottom:14px;"></div>
             <p>Нажмите на метку на карте, чтобы узнать подробности</p>
         </div>
         <div class="detail-content" id="detailContent">
@@ -385,7 +387,7 @@
                 <div class="detail-year" id="dYear"></div>
                 <div class="detail-desc" id="dDesc"></div>
                 <div class="detail-price-box">
-                    <i class="fas fa-ticket"></i>
+                    <span id="dPriceIcon"></span>
                     <span id="dPrice"></span>
                 </div>
                 <div id="dCompare"></div>
@@ -397,14 +399,41 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ====== DATA ======
+// SVG icons (24x24 viewBox). Inline so no external font dependency.
+const ICONS = {
+    fortress: '<path d="M4 21V9l3-2v3h3V7l2-1.5L14 7v3h3V7l3 2v12h-5v-5h-2v5z"/>',
+    temple:   '<path d="M12 2l1 2v2h2v2h-2v2l3 2v2h1v8h-4v-5h-2v5H7v-8h1v-2l3-2V8H9V6h2V4z"/>',
+    mansion:  '<path d="M3 21V10l9-6 9 6v11h-6v-7H9v7zm6-12h2v2H9zm4 0h2v2h-2z"/>',
+    public:   '<path d="M12 2L2 8h2v10H2v2h20v-2h-2V8h2zM6 10h2v6H6zm4 0h2v6h-2zm4 0h2v6h-2z"/>',
+    culture:  '<path d="M8 3a5 5 0 100 10 5 5 0 000-10zm0 2.5a1 1 0 110 2 1 1 0 010-2zm-2 3a1 1 0 110 2 1 1 0 010-2zm4 0a1 1 0 110 2 1 1 0 010-2zM16 11a5 5 0 100 10 5 5 0 000-10zm0 2.5a1 1 0 110 2 1 1 0 010-2zm-2 3a1 1 0 110 2 1 1 0 010-2zm4 0a1 1 0 110 2 1 1 0 010-2z"/>',
+    commerce: '<path d="M5 4h14l1 4H4zM4 10h16v10h-5v-6H9v6H4z"/>',
+    monument: '<path d="M9 2h6l-1 3v2h2l1 14H7l1-14h2V5z"/>',
+};
+const UI = {
+    list:    '<path d="M4 6h2v2H4zm0 5h2v2H4zm0 5h2v2H4zM8 6h12v2H8zm0 5h12v2H8zm0 5h12v2H8z"/>',
+    route:   '<path d="M7 4a3 3 0 00-1 5.83V14a1 1 0 102 0V9.83A3 3 0 007 4zm10 6v4.17A3 3 0 1019 14V10a3 3 0 00-2-2.83V4a1 1 0 10-2 0v3.17A3 3 0 0017 10zM7 16a3 3 0 110 6 3 3 0 010-6zm10-8a1 1 0 110 2 1 1 0 010-2zM7 18a1 1 0 110 2 1 1 0 010-2z"/>',
+    moon:    '<path d="M21 13a9 9 0 11-10-10 7 7 0 0010 10z"/>',
+    sun:     '<path d="M12 7a5 5 0 100 10 5 5 0 000-10zm0-5v3m0 14v3m9-10h-3M5 12H2m17.07-7.07l-2.12 2.12M7.05 16.95l-2.12 2.12m0-14.14l2.12 2.12m9.9 9.9l2.12 2.12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    close:   '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>',
+    pointer: '<path d="M9 2v8H6l5 6 5-6h-3V2zm-7 18h20v2H2z"/>',
+    chevL:   '<path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    chevR:   '<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    chevRight:'<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    ticket:  '<path d="M2 9V6a2 2 0 012-2h16a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H4a2 2 0 01-2-2v-3a2 2 0 000-4z"/>',
+    history: '<path d="M12 4a8 8 0 108 8h-2a6 6 0 11-6-6V4zm0 0V2L8 5l4 3zm-1 4v5l4 2 1-1.5-3.5-2V8z"/>',
+    landmark:'<path d="M3 21V10l9-6 9 6v11h-6v-7H9v7zm6-12h2v2H9zm4 0h2v2h-2z"/>',
+    logo:    '<path d="M12 2C7.6 2 4 5.6 4 10c0 5.5 8 12 8 12s8-6.5 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z"/>',
+};
+function svg(p, extraCls){ return '<svg class="ic'+(extraCls?' '+extraCls:'')+'" viewBox="0 0 24 24">'+p+'</svg>'; }
+
 const categories = [
-    { id: "fortress", name: "Крепости и оборона",  icon: "fa-chess-rook",    color: "#64748b" },
-    { id: "temple",   name: "Храмы и монастыри",   icon: "fa-church",        color: "#8b5cf6" },
-    { id: "mansion",  name: "Усадьбы и особняки",  icon: "fa-building",      color: "#ef4444" },
-    { id: "public",   name: "Общественные здания",  icon: "fa-university",    color: "#3b82f6" },
-    { id: "culture",  name: "Культура и театры",    icon: "fa-theater-masks", color: "#f97316" },
-    { id: "commerce", name: "Торговля и ярмарки",   icon: "fa-store",         color: "#10b981" },
-    { id: "monument", name: "Памятники и лестницы", icon: "fa-monument",      color: "#eab308" },
+    { id: "fortress", name: "Крепости и оборона",   color: "#64748b" },
+    { id: "temple",   name: "Храмы и монастыри",    color: "#8b5cf6" },
+    { id: "mansion",  name: "Усадьбы и особняки",   color: "#ef4444" },
+    { id: "public",   name: "Общественные здания",  color: "#3b82f6" },
+    { id: "culture",  name: "Культура и театры",    color: "#f97316" },
+    { id: "commerce", name: "Торговля и ярмарки",   color: "#10b981" },
+    { id: "monument", name: "Памятники и лестницы", color: "#eab308" },
 ];
 
 const places = [
@@ -557,10 +586,22 @@ function makeIcon(catId, big) {
     const s = big ? 42 : 36;
     return L.divIcon({
         className: '',
-        html: `<div class="map-marker" style="background:${cat.color};width:${s}px;height:${s}px;"><i class="fas ${cat.icon}"></i></div>`,
+        html: `<div class="map-marker" style="background:${cat.color};width:${s}px;height:${s}px;">${svg(ICONS[catId])}</div>`,
         iconSize: [s, s], iconAnchor: [s/2, s], popupAnchor: [0, -s+6]
     });
 }
+
+// Initialize static UI icons
+document.getElementById('logo').innerHTML = svg(UI.logo) + ' MyTrip';
+document.getElementById('btnTheme').innerHTML = svg(UI.moon);
+document.getElementById('btnPlaces').innerHTML = svg(UI.list) + ' Все места';
+document.getElementById('btnRoutes').innerHTML = svg(UI.route) + ' Маршруты';
+document.getElementById('placesTitle').innerHTML = svg(UI.landmark) + ' Все места';
+document.getElementById('routesTitle').innerHTML = svg(UI.route) + ' Маршруты';
+document.getElementById('drawerClose').innerHTML = svg(UI.close);
+document.getElementById('routesClose').innerHTML = svg(UI.close);
+document.getElementById('detailEmptyIcon').innerHTML = svg(UI.pointer);
+document.getElementById('dPriceIcon').innerHTML = svg(UI.ticket);
 
 function makePopup(p) {
     return `<div class="popup-card">
@@ -596,14 +637,14 @@ function showDetail(id) {
         `<img src="${src}" alt="" class="${i===0?'active':''}" onerror="this.style.display='none'" />`
     ).join('');
     if (imgs.length > 1) {
-        gal.innerHTML += `<button class="gallery-nav prev" onclick="galNav(-1)"><i class="fas fa-chevron-left"></i></button>
-            <button class="gallery-nav next" onclick="galNav(1)"><i class="fas fa-chevron-right"></i></button>
+        gal.innerHTML += `<button class="gallery-nav prev" onclick="galNav(-1)">${svg(UI.chevL)}</button>
+            <button class="gallery-nav next" onclick="galNav(1)">${svg(UI.chevR)}</button>
             <div class="gallery-dots">${imgs.map((_, i) => `<span class="${i===0?'active':''}" onclick="galGo(${i})"></span>`).join('')}</div>`;
     }
 
     const tag = document.getElementById('dTag');
     tag.style.background = cat.color;
-    tag.innerHTML = `<i class="fas ${cat.icon}"></i> ${cat.name}`;
+    tag.innerHTML = `${svg(ICONS[p.cat])} ${cat.name}`;
     document.getElementById('dName').textContent = p.name;
     document.getElementById('dYear').textContent = p.year;
     document.getElementById('dDesc').textContent = p.desc;
@@ -611,7 +652,7 @@ function showDetail(id) {
 
     const comp = document.getElementById('dCompare');
     if (p.oldImg) {
-        comp.innerHTML = `<div style="font-weight:700;font-size:0.88rem;margin-top:18px;margin-bottom:8px;"><i class="fas fa-history"></i> Тогда и сейчас</div>
+        comp.innerHTML = `<div style="font-weight:700;font-size:0.88rem;margin-top:18px;margin-bottom:8px;">${svg(UI.history)} Тогда и сейчас</div>
             <div class="compare-wrap" id="compareWrap">
                 <img class="compare-old" src="${p.oldImg}" alt="Старое фото" />
                 <img class="compare-new" src="${p.img}" alt="Современное фото" />
@@ -663,7 +704,7 @@ const darkTiles = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
 function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
     const btn = document.getElementById('btnTheme');
-    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    btn.innerHTML = dark ? svg(UI.sun) : svg(UI.moon);
     const toRemove = [];
     map.eachLayer(l => { if (l instanceof L.TileLayer) toRemove.push(l); });
     toRemove.forEach(l => map.removeLayer(l));
@@ -702,8 +743,8 @@ categories.forEach(cat => {
     sec.className = 'cat-section';
     const hdr = document.createElement('div');
     hdr.className = 'cat-header';
-    hdr.innerHTML = `<div class="cat-badge" style="background:${cat.color}"><i class="fas ${cat.icon}"></i></div>
-        ${cat.name} <span class="cnt">${catPlaces.length}</span><i class="fas fa-chevron-right chevron"></i>`;
+    hdr.innerHTML = `<div class="cat-badge" style="background:${cat.color}">${svg(ICONS[cat.id])}</div>
+        ${cat.name} <span class="cnt">${catPlaces.length}</span><span class="chevron">${svg(UI.chevRight)}</span>`;
     const items = document.createElement('div');
     items.className = 'cat-items';
     catPlaces.forEach(p => {
