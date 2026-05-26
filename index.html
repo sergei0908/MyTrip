@@ -544,7 +544,8 @@ const routes = [
 ];
 
 // ====== MAP ======
-const map = L.map('map', { zoomControl: true }).setView([56.3260, 44.0000], 14);
+const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([56.3260, 44.0000], 14);
+L.control.attribution({ prefix: '© <a href="https://leafletjs.com">Leaflet</a>' }).addTo(map);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap', maxZoom: 19
 }).addTo(map);
