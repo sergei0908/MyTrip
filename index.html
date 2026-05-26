@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MyTrip — Архитектурный Нижний Новгород XIX–XX вв.</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <style>
         :root {
             --bg: #f7f7f8;
@@ -341,7 +341,7 @@
 <body>
 
 <header>
-    <div class="logo"><i class="fas fa-map-location-dot"></i> MyTrip</div>
+    <div class="logo"><i class="fas fa-map-marked-alt"></i> MyTrip</div>
     <span class="header-sub">Архитектурный облик Нижнего Новгорода XIX–XX вв.</span>
     <div class="header-actions">
         <button class="hdr-btn" id="btnTheme"><i class="fas fa-moon"></i></button>
@@ -355,7 +355,7 @@
 <div class="drawer" id="placesDrawer">
     <div class="drawer-header">
         <h2><i class="fas fa-landmark"></i> Все места</h2>
-        <button class="drawer-close" id="drawerClose"><i class="fas fa-xmark"></i></button>
+        <button class="drawer-close" id="drawerClose"><i class="fas fa-times"></i></button>
     </div>
     <input class="drawer-search" id="searchInput" type="text" placeholder="Поиск по названию…" />
     <div class="drawer-body" id="drawerBody"></div>
@@ -365,7 +365,7 @@
 <div class="routes-drawer" id="routesDrawer">
     <div class="drawer-header">
         <h2><i class="fas fa-route"></i> Маршруты</h2>
-        <button class="drawer-close" id="routesClose"><i class="fas fa-xmark"></i></button>
+        <button class="drawer-close" id="routesClose"><i class="fas fa-times"></i></button>
     </div>
     <div class="drawer-body" id="routesBody" style="padding-top:10px;"></div>
 </div>
@@ -402,7 +402,7 @@ const categories = [
     { id: "temple",   name: "Храмы и монастыри",   icon: "fa-church",        color: "#8b5cf6" },
     { id: "mansion",  name: "Усадьбы и особняки",  icon: "fa-building",      color: "#ef4444" },
     { id: "public",   name: "Общественные здания",  icon: "fa-university",    color: "#3b82f6" },
-    { id: "culture",  name: "Культура и театры",    icon: "fa-masks-theater", color: "#f97316" },
+    { id: "culture",  name: "Культура и театры",    icon: "fa-theater-masks", color: "#f97316" },
     { id: "commerce", name: "Торговля и ярмарки",   icon: "fa-store",         color: "#10b981" },
     { id: "monument", name: "Памятники и лестницы", icon: "fa-monument",      color: "#eab308" },
 ];
@@ -611,7 +611,7 @@ function showDetail(id) {
 
     const comp = document.getElementById('dCompare');
     if (p.oldImg) {
-        comp.innerHTML = `<div style="font-weight:700;font-size:0.88rem;margin-top:18px;margin-bottom:8px;"><i class="fas fa-clock-rotate-left"></i> Тогда и сейчас</div>
+        comp.innerHTML = `<div style="font-weight:700;font-size:0.88rem;margin-top:18px;margin-bottom:8px;"><i class="fas fa-history"></i> Тогда и сейчас</div>
             <div class="compare-wrap" id="compareWrap">
                 <img class="compare-old" src="${p.oldImg}" alt="Старое фото" />
                 <img class="compare-new" src="${p.img}" alt="Современное фото" />
